@@ -1,0 +1,99 @@
+import json
+from datetime import datetime
+import re
+import copy
+
+class ListManipulator:
+    """
+    A class for manipulating lists of dictionaries.
+    """
+    def __init__(self, filename):
+        self.filename = filename
+        self.data = []
+        self.last_id = 0
+
+    def load_json(self):
+            """
+            Loads JSON data from a file and adds an 'id' key to each item in the data.
+            """
+            try:
+                with open(self.filename, 'r') as f:
+                    self.data = json.load(f)
+                # add id to each data item
+                [item.update({'id': self.last_id}) for self.last_id, item in enumerate(self.data, start=1)]
+            except FileNotFoundError:
+                pass
+
+    def save_json(self, filename=None):
+            """
+            Saves the data in JSON format to a file.
+
+            Args:
+                filename (str): The name of the file to save the data to. If not provided, the current filename will be used.
+
+            Returns:
+                None
+            """
+            if not filename:
+                filename = self.filename
+            with open(filename, 'w') as f:
+                json.dump(self.data, f)
+
+    def select(self, data, column, operator, value, sort_by=None, sort_direction=None):
+            """
+            Selects items from a list of dictionaries based on a given column, operator, and value.
+            
+            Args:
+            - data (list): A list of dictionaries to filter.
+            - column (str): The column to filter on.
+            - operator (str): The operator to use for filtering. Can be one of: '==', '!=', '>', '>=', '<', '<=', or '*'.
+            - value (str): The value to filter on.
+            - sort_by (str): Optional. The column to sort the filtered data by.
+            - sort_direction (str): Optional. The direction to sort the filtered data in. Can be one of: 'ascending' or 'descending'.
+            
+            Returns:
+            - A copy of the filtered data as a list of dictionaries.
+            """
+            # Define a dictionary of operators to use for filtering
+            ops = {
+                '==': lambda x: x == value,
+                '!=': lambda x: x != value,
+                '>': lambda x: x > value,
+                '>=': lambda x: x >= value,
+                '<': lambda x: x < value,
+                '<=': lambda x: x <= value,
+                '*': lambda x: re.match(value.replace('*', '.*').casefold(), x.casefold())
+            }
+            
+            # Try to convert the value to a datetime object
+            try:
+                value = datetime.strptime(value, "%Y-%m-%d").date()
+            except:
+                pass
+            
+            # Filter the data based on the given column, operator, and value
+            filtered_data = [item for item in data if ops[operator](item[column])]
+            
+            # Sort the filtered data if a sort_by column is provided
+            if sort_by:
+                reverse_sort = False if sort_direction == 'ascending' else True
+                filtered_data = sorted(filtered_data, key=lambda x: x[sort_by], reverse=reverse_sort)
+            
+            # Return a copy of the filtered data
+            return copy.deepcopy(filtered_data)
+    
+    def unique(self, data, column):
+        """
+        Returns a list of unique values from the specified column in the given data.
+        
+        Args:
+        - data (list): A list of dictionaries representing the data.
+        - column (str): The name of the column to extract unique values from.
+        
+        Returns:
+        - A list of unique values from the specified column in the given data.
+        """
+        return list(set(item[column] for item in data))
+
+if __name__ == '__main__':
+    manipulator = ListManipulator("data.json")
